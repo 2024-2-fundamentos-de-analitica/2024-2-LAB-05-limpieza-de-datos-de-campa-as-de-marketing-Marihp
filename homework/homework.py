@@ -2,6 +2,8 @@
 Escriba el codigo que ejecute la accion solicitada.
 """
 
+import pandas as pd
+
 # pylint: disable=import-outside-toplevel
 
 
@@ -45,12 +47,101 @@ def clean_campaign_data():
     - client_id
     - const_price_idx
     - eurobor_three_months
-
-
-
     """
 
-    return
+    # Directorios de entrada y salida como cadenas
+    input_path = "files/input/"
+    output_path = "files/output/"
+
+    # Procesar cada archivo ZIP
+    zip_files = [
+        f"{input_path}{file}"
+        for file in pd.io.common.os.listdir(input_path)
+        if file.endswith(".zip")
+    ]
+
+    # Leer cada archivo y concatenar en un df
+    data = pd.concat(
+        [pd.read_csv(file) for file in zip_files],
+        ignore_index=True,
+    )
+    # print(data.info())
+
+    # Procesar datos
+    client = data[
+        [
+            "client_id",
+            "age",
+            "job",
+            "marital",
+            "education",
+            "credit_default",
+            "mortgage",
+        ]
+    ].copy()
+
+    # print(client.info())
+
+    # Transformaciones para client.csv
+    client["job"] = client["job"].str.replace(".", "").str.replace("-", "_")
+    client["education"] = (
+        client["education"].str.replace(".", "_").replace("unknown", pd.NA)
+    )
+    client["credit_default"] = client["credit_default"].apply(
+        lambda x: 1 if x == "yes" else 0
+    )
+    client["mortgage"] = client["mortgage"].apply(lambda x: 1 if x == "yes" else 0)
+
+    # print(client)
+
+    client.to_csv(output_path + "client.csv", index=False)
+
+    # CAMPAIGN.CSV -------------------------------------------------------
+
+    campaign = data[
+        [
+            "client_id",
+            "number_contacts",
+            "contact_duration",
+            "previous_campaign_contacts",
+            "previous_outcome",
+            "campaign_outcome",
+            "day",
+            "month",
+        ]
+    ].copy()
+
+    # Transformaciones para campaign.csv
+    campaign["previous_outcome"] = campaign["previous_outcome"].apply(
+        lambda x: 1 if x == "success" else 0
+    )
+    campaign["campaign_outcome"] = campaign["campaign_outcome"].apply(
+        lambda x: 1 if x == "yes" else 0
+    )
+    campaign["last_contact_date"] = pd.to_datetime(
+        "2022-" + campaign["month"] + "-" + campaign["day"].astype(str),
+        format="%Y-%b-%d",
+    )
+
+    # Seleccionar columnas finales y guardar
+    campaign = campaign[
+        [
+            "client_id",
+            "number_contacts",
+            "contact_duration",
+            "previous_outcome",
+            "previous_campaign_contacts",
+            "campaign_outcome",
+            "last_contact_date",
+        ]
+    ]
+    campaign.to_csv(output_path + "campaign.csv", index=False)
+
+    # ECONOMICS.CSV ---------------------------------
+    economics = data[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
+
+    # Guardar economics.csv
+    economics.to_csv(output_path + "economics.csv", index=False)
 
 
 if __name__ == "__main__":
